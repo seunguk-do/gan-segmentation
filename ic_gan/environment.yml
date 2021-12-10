@@ -1,4 +1,4 @@
-name: ic_gan_ddp_1.8.0
+name: ic_gan
 channels:
   - conda-forge
   - pytorch
