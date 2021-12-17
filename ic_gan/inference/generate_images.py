@@ -66,6 +66,9 @@ def get_model(exp_name, root_path, backbone, device="cuda"):
 
 
 def get_conditionings(test_config, generator, data):
+    # TO DO
+    # Change this with z obtained with Projection
+
     # Obtain noise vectors
     z = torch.empty(
         test_config["num_imgs_gen"] * test_config["num_conditionings_gen"],
@@ -222,7 +225,7 @@ def main(test_config):
     plt.imshow(big_plot)
     plt.axis("off")
 
-    fig_path = "%s_Generations_with_InstanceDataset_%s%s%s_zvar%0.2f.png" % (
+    fig_path = "./generated_samples/%s_Generations_with_InstanceDataset_%s%s%s_zvar%0.2f.png" % (
         exp_name,
         test_config["which_dataset"],
         "_index" + str(test_config["index"])

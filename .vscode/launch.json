@@ -1,0 +1,48 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "StyleGAN256",
+            "type": "python",
+            "request": "launch",
+            "program": "./ic_gan/inference/generate_images.py",
+            "console": "integratedTerminal",
+            "env": {"CUDA_VISIBLE_DEVICES":"1"},
+            "args": ["--root_path", "./ckpts/", "--model", "icgan", "--model_backbone", "stylegan2", "--resolution", "256", "--which_dataset", "coco", "--trained_dataset", "coco"],
+        },
+        {
+            "name": "StyleGAN128",
+            "type": "python",
+            "request": "launch",
+            "program": "./ic_gan/inference/generate_images.py",
+            "console": "integratedTerminal",
+            "env": {"CUDA_VISIBLE_DEVICES":"1"},
+            "args": ["--root_path", "./ckpts/", "--model", "icgan", "--model_backbone", "stylegan2", "--resolution", "128", "--which_dataset", "coco", "--trained_dataset", "coco"],
+        },
+        {
+            "name": "BigGAN256",
+            "type": "python",
+            "request": "launch",
+            "program": "./ic_gan/inference/generate_images.py",
+            "console": "integratedTerminal",
+            "env": {"CUDA_VISIBLE_DEVICES":"1"},
+            "args": ["--root_path", "./ckpts/", "--model", "icgan", "--model_backbone", "biggan", "--resolution", "256", "--which_dataset", "coco", "--trained_dataset", "coco"],
+        },
+        {
+            "name": "BigGAN128",
+            "type": "python",
+            "request": "launch",
+            "program": "./ic_gan/inference/generate_images.py",
+            "console": "integratedTerminal",
+            "env": {"CUDA_VISIBLE_DEVICES":"1"},
+            "args": ["--root_path", "./ckpts/", "--model", "icgan", "--model_backbone", "biggan", "--resolution", "128", "--which_dataset", "coco", "--trained_dataset", "coco"],
+        },
+        
+        // pretrained_models_path : ckpts/ \\ model ic_gan or cc_icgan \\ model_backbone biggan or stylegan2 \\ resolution 128 or 256 \\ which_dataset imagenet or coco \
+        // || trained_dataset imagenet or coco || num_imgs_gen 5 by default, || num_conditionings_gen || z_var 1.0 to 0
+    ]
+}
+// --root_path [pretrained_models_path] --model [model] --model_backbone [backbone] --resolution [res]

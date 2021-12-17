@@ -4,3 +4,4 @@ weight_norms/
 inception_net/
 *.npy
 *.npz
+*.png
