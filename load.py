@@ -20,5 +20,4 @@ if __name__ == '__main__':
     print("Loading")
 
     generator.load_state_dict(torch.load(pretrained_model_path))
-    import pdb; pdb.set_trace()
     print("Load Complete")
