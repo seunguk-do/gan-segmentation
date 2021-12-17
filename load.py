@@ -10,7 +10,7 @@ if __name__ == '__main__':
     pretrained_model_path = os.path.join(root_path,
                                          'pretrained_models',
                                          'icgan_stylegan2_coco_res256',
-                                         'test.pth')
+                                         'best_model.pth')
 
     generator = Generator(z_dim=512, c_dim=0, h_dim=2048, w_dim=512,
                           img_resolution=256, img_channels=3,
