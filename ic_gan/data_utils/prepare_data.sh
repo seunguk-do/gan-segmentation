@@ -4,9 +4,9 @@
 
 resolution=$2 # 64,128,256
 dataset=$1 #'imagenet', 'imagenet_lt',  'coco', [a transfer dataset, such as 'cityscapes']
-out_path='/root/code/gan-segmentation/datasets/processed_data'
-path_imnet='/root/code/gan-segmentation/datasets/coco'
-path_swav='/root/code/gan-segmentation/datasets/swav_800ep_pretrain.pth.tar'
+out_path='/root/code/gan-segmentation/ic_gan/datasets/processed_data'
+path_imnet='/root/code/gan-segmentation/ic_gan/datasets/coco/images'
+path_swav='/root/code/gan-segmentation/ic_gan/datasets/swav_800ep_pretrain.pth.tar'
 path_classifier_lt='resnet50_uniform_e90.pth'
 
 
@@ -38,7 +38,8 @@ elif [ $dataset = 'coco' ]; then
   path_split=("train" "val")
   split=("train" "test")
   for i in "${!path_split[@]}"; do
-    coco_data_path='COCO/022719/'${path_split[i]}'2017'
+    #coco_data_path='COCO/022719/'${path_split[i]}'2017'
+    coco_data_path='datasets/coco/images/'${path_split[i]}'2017'
     coco_instances_path='datasets/coco/annotations/instances_'${path_split[i]}'2017.json'
     coco_stuff_path='datasets/coco/annotations/stuff_'${path_split[i]}'2017.json'
     python data_utils/make_hdf5.py --resolution $resolution --which_dataset 'coco' --split ${split[i]} --data_root $coco_data_path --instance_json $coco_instances_path --stuff_json $coco_stuff_path --out_path $out_path --feature_extractor 'selfsupervised' --feature_augmentation --pretrained_model_path $path_swav

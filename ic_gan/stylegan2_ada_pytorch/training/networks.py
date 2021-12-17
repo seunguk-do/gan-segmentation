@@ -719,6 +719,14 @@ class Generator(torch.nn.Module):
         mapping_kwargs={},  # Arguments for MappingNetwork.
         synthesis_kwargs={},  # Arguments for SynthesisNetwork.
     ):
+        print("**** z_dim:{}".format(z_dim))
+        print("**** c_dim:{}".format(c_dim))
+        print("**** h_dim:{}".format(h_dim))
+        print("**** w_dim:{}".format(w_dim))
+        print("**** img_resolution:{}".format(img_resolution))
+        print("**** img_channels:{}".format(img_channels))
+        print("**** mappping_kwargs:{}".format(mapping_kwargs))
+        print("**** synthesis_kwargs:{}".format(synthesis_kwargs))
         super().__init__()
         self.z_dim = z_dim
         self.c_dim = c_dim
