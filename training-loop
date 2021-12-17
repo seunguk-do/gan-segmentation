@@ -1,0 +1,17 @@
+
+
+--> Few Shot,, 
+--> class 한 개씩? 어떤 식으로 뽑을 건지..? 
+
+
+0) network, 정의
+
+1) image를 로드
+    img, label = loader()
+
+2) image를 Projection (z), K NN을 통해 (h) --> def get_zh(img) : returns z, h [3, 256, 256]
+3) features = Generator(Z,H) --> concat
+4) output = segmentation_network(h, features)
+5) loss(ground_truth, output)
+
+vs_code --> live share
