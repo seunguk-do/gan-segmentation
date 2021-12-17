@@ -21,7 +21,6 @@ from torch_utils.ops import conv2d_resample
 from torch_utils.ops import upfirdn2d
 from torch_utils.ops import bias_act
 from torch_utils.ops import fma
-
 # ----------------------------------------------------------------------------
 
 
@@ -603,9 +602,11 @@ class SynthesisBlock(torch.nn.Module):
         # Main layers.
         if self.in_channels == 0:
             x = self.conv1(x, next(w_iter), fused_modconv=fused_modconv, **layer_kwargs)
+            features = [x]
         elif self.architecture == "resnet":
             y = self.skip(x, gain=np.sqrt(0.5))
             x = self.conv0(x, next(w_iter), fused_modconv=fused_modconv, **layer_kwargs)
+            features = [x]
             x = self.conv1(
                 x,
                 next(w_iter),
@@ -614,9 +615,12 @@ class SynthesisBlock(torch.nn.Module):
                 **layer_kwargs,
             )
             x = y.add_(x)
+            features.append(x)
         else:
             x = self.conv0(x, next(w_iter), fused_modconv=fused_modconv, **layer_kwargs)
+            features = [x]
             x = self.conv1(x, next(w_iter), fused_modconv=fused_modconv, **layer_kwargs)
+            features.append(x)
 
         # ToRGB.
         if img is not None:
@@ -632,7 +636,7 @@ class SynthesisBlock(torch.nn.Module):
 
         assert x.dtype == dtype
         assert img is None or img.dtype == torch.float32
-        return x, img
+        return x, img, features
 
 
 # ----------------------------------------------------------------------------
@@ -697,10 +701,12 @@ class SynthesisNetwork(torch.nn.Module):
                 w_idx += block.num_conv
 
         x = img = None
+        features = []
         for res, cur_ws in zip(self.block_resolutions, block_ws):
             block = getattr(self, f"b{res}")
             x, img = block(x, img, cur_ws, **block_kwargs)
-        return img
+            features += features
+        return img, features
 
 
 # ----------------------------------------------------------------------------
@@ -752,8 +758,8 @@ class Generator(torch.nn.Module):
             truncation_psi=truncation_psi,
             truncation_cutoff=truncation_cutoff,
         )
-        img = self.synthesis(ws, **synthesis_kwargs)
-        return img
+        img, feat = self.synthesis(ws, **synthesis_kwargs)
+        return img, feat
 
 
 # ----------------------------------------------------------------------------
