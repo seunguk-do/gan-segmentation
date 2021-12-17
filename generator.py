@@ -750,15 +750,8 @@ class Generator(torch.nn.Module):
         )
 
     def forward(
-        self, z, c, feats, truncation_psi=1, truncation_cutoff=None, **synthesis_kwargs
+        self, ws, **synthesis_kwargs
     ):
-        ws = self.mapping(
-            z,
-            c,
-            feats,
-            truncation_psi=truncation_psi,
-            truncation_cutoff=truncation_cutoff,
-        )
         img, feat = self.synthesis(ws, **synthesis_kwargs)
         return img, feat
 
