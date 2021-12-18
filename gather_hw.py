@@ -5,8 +5,8 @@ h_sets = defaultdict(list)
 ws_sets = defaultdict(list)
 
 for i in range(10):
-    name_h = "new_h_"+str(i)+".pickle"
-    name_ws = "new_ws_"+str(i)+".pickle"
+    name_h = "pickles_new/new_h_"+str(i)+".pickle"
+    name_ws = "pickles_new/new_ws_"+str(i)+".pickle"
     # name_h = "pickles_old/h_"+str(i)+".pickle"
     # name_ws = "pickles_old/ws_"+str(i)+".pickle"
     with open(name_h, 'rb') as f:
