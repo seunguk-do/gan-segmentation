@@ -15,6 +15,11 @@ from data_utils import ImageDataset
 # Environment Variables
 root_path = os.path.dirname(os.path.abspath(__file__))
 
+def preprocess_img(img):
+    
+    return img
+
+
 def load_feature_extractor_and_precomputed_features(path_to_swav, path_to_precomputed_features):
     feature_extractor = load_pretrained_feature_extractor(path_to_swav, "selfsupervised").eval()
     precomputed_features = np.load(path_to_precomputed_features, allow_pickle=True).item()["instance_features"]    
@@ -35,7 +40,7 @@ def get_h(img, feature_extractor, precomputed_features,):
     for i in range(len(precomputed_features)):
         dist = sklearn.metrics.pairwise_distances(
                 out_features, precomputed_features[i].unsqueeze(0), metric="euclidean", n_jobs=-1)
-        all_dists.add(np.diagonal(dist)[0])
+        all_dists.append(np.diagonal(dist)[0])
     h_idx = np.argsort(all_dists)[0]
 
     return precomputed_features[h_idx].cuda() 
@@ -179,7 +184,7 @@ if __name__ == '__main__':
     generator.requires_grad_(False)
 
     # Data Loader
-    dataset = ImageDataset('./datasets') 
+    dataset = ImageDataset('./datasets/coco') 
     categories = dataset.get_category_ids()
 
     model = FewShotCNN(5376, 90, size='L')
