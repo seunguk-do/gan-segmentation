@@ -17,8 +17,10 @@ from PIL import Image
 # Environment Variables
 root_path = os.path.dirname(os.path.abspath(__file__))
 
-def save_as_img(target, name, normalized=True):
-    assert target.shape == (1, 3, 256, 256)
+def save_as_img(target, name, normalized=True, mask=False):
+    if mask == True:
+        
+
     if normalized == False:
         image = target.permute(0, 2, 3, 1).clamp(0,255).to(torch.uint8)[0].cpu().numpy()
         image = Image.fromarray(image)

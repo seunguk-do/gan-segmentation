@@ -8,6 +8,7 @@ from generator import Generator
 from model import FewShotCNN
 import pickle
 import sys
+from eval_utils import mIoUEstimator
 
 # Environment Variables
 root_path = os.path.dirname(os.path.abspath(__file__))
@@ -43,11 +44,11 @@ if __name__ == '__main__':
     generator.requires_grad_(False)
 
     # Load data
-    with open("pickles_old/h_sets.pickle", "rb") as f:
+    with open("pickles_new/h_sets.pickle", "rb") as f:
         h_sets = pickle.load(f)
-    with open("pickles_old/ws_sets.pickle", "rb") as f:
+    with open("pickles_new/ws_sets.pickle", "rb") as f:
         ws_sets = pickle.load(f)
-    with open("pickles_old/masks.pickle", "rb") as f:
+    with open("pickles_new/masks.pickle", "rb") as f:
         labels = pickle.load(f)
 
     train_h_set = []
@@ -67,6 +68,7 @@ if __name__ == '__main__':
         eval_labels += labels[i]
 
     model = FewShotCNN(4416, 91, size='L')
+    mIoU_estimator = mIoUEstimator()
 
     # Training
     optimizer = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=0.001)
@@ -76,7 +78,7 @@ if __name__ == '__main__':
     start_time = time.time()
     print("Start training...!")
     for epoch in range(1, 100+1):
-        
+        print(f"epoch: {epoch}/100")
         for ws, label in zip(train_ws_set, train_labels):
             ws, label = ws.cuda(), label.cuda()
             with torch.no_grad():
@@ -84,23 +86,27 @@ if __name__ == '__main__':
             feat_concat = concat_features(feat)
             out = model(feat_concat)
             loss = F.cross_entropy(out, label, reduction='mean')
-            print(loss)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
         
         if epoch % 5 == 0:
             print(f'{epoch:5}-th epoch | loss: {loss.item():6.4f} | time: {time.time()-start_time:6.1f}sec')
+            scores = []
             for ws, label in zip(eval_ws_set, eval_labels):
                 ws, label = ws.cuda(), label.cuda()
                 with torch.no_grad():
                     _, feat = generator(ws)
                 feat_concat = concat_features(feat)
                 out = model(feat_concat)
-
-                ## CALL SOME EVUATION METRICS ##
-
-            checkpoint_path = os.path.join(checkpoint_dir, f'val_loss_{loss.item():6.4f}.pt')
+                model_prediction = torch.max(out, dim=1)[1]
+                # model_prediction & ground_truth : tensor of [B, H, W] or [B, 1, H, W]
+                metric = mIoU_estimator(model_prediction, label)
+                scores.append(metric.item())
+            
+            avg_score = np.mean(scores)
+            print(f'average mIoU: {avg_score}')
+            checkpoint_path = os.path.join(checkpoint_dir, f'mIoU_{avg_score:6.4f}.pt')
             torch.save({'epoch': epoch,
                         'model_state_dict': model.state_dict(),
                         'optimizer_state_dict': optimizer.state_dict(),
