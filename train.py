@@ -10,6 +10,7 @@ from generator import Generator
 from model import FewShotCNN
 from ic_gan.data_utils.utils import load_pretrained_feature_extractor
 from stylegan2_ada_pytorch import dnnlib
+from data_utils import ImageDataset
 
 # Environment Variables
 root_path = os.path.dirname(os.path.abspath(__file__))
@@ -150,13 +151,10 @@ def get_ws(G, target, h, device):
 
     return ws
 
-
-
 if __name__ == '__main__':
     # Training Arguments
     device = 'cuda' 
     image_size = 256
-    n_samples = 
     pretrained_model_path = os.path.join(root_path, 'pretrained_models',
                                          'icgan_stylegan2_coco_res256',
                                          'best_model.pth')
@@ -178,11 +176,13 @@ if __name__ == '__main__':
                                             'num_fp16_res': 4, 
                                             'conv_clamp': 256})
     generator.load_state_dict(torch.load(pretrained_model_path))
-
-    model = FewShotCNN(in_ch, n_class)
+    generator.requires_grad_(False)
 
     # Data Loader
-    dataloader = 
+    dataset = ImageDataset('./datasets') 
+    categories = dataset.get_category_ids()
+
+    model = FewShotCNN(5376, 90, size='L')
 
     # Training
     optimizer = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=0.001)
@@ -191,20 +191,20 @@ if __name__ == '__main__':
     model.train().to(device)
     start_time = time.time()
     for epoch in range(1, 100+1):
-        sample_order = list(range(n_sample))
-        random.shuffle(sample_order)
+        
+        random.shuffle(categories)
 
-        for idx in sample_order:
+        for cat_id in categories:
             ## loader brings in img
-            img, label = 
+            img, label = dataset.get_sample_by_category_id(cat_id)
 
             # img [N, C, W, H]
-            h = get_h(img, feature_extractor, precomputed_features)
-            ws = get_ws(generator, img, h, device)
+            h = get_h(img, feature_extractor, precomputed_features) #20~30sec
+            ws = get_ws(generator, img, h, device)  #90 sec
 
-            _, feat = generator(ws) 
+            _, feat = generator(ws)
 
-            out = model(feat)
+            out = model(feat) # --> [1, n_class, 256, 256] 
 
             loss = F.cross_entropy(out, label, reduction='mean')
 
@@ -212,7 +212,7 @@ if __name__ == '__main__':
             loss.backward()
             optimizer.step()
 
-        if epoch % 50 == 0:
+        if epoch % 1 == 0:
             print(f'{epoch:5}-th epoch | loss: {loss.item():6.4f} | time: {time.time()-start_time:6.1f}sec')
             checkpoint_path = os.path.join(checkpoint_dir, f'val_loss_{loss.item():6.4f}.pt')
             torch.save({'epoch': epoch,

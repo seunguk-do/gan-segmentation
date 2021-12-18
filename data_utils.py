@@ -19,7 +19,7 @@ class ImageDataset:
         ids=[cat['id'] for cat in cats] 
         return ids
     
-    def get_sample_by_category_id(self.cat_ids):
+    def get_sample_by_category_id(self, cat_ids):
         """
         Args:
             cat_ids: [int]
@@ -32,10 +32,13 @@ class ImageDataset:
         img = self.coco.loadImgs(img_ids[np.random.randint(0,len(img_ids))])[0]
         I = io.imread(img['coco_url'])
 
-        ann_ids = self.coco.getAnnIds(imgIds=img['id'], catIds=self.coco.getCatIds(catIds=cat_ids), iscrowd=None)
+        ann_ids = self.coco.getAnnIds(imgIds=img['id'], catIds=self.coco.getCatIds(catIds=self.get_category_ids()), iscrowd=None)
         anns = self.coco.loadAnns(ann_ids)
-        labels = [ann['segmentation'] for ann in anns]
 
+        # 1 for segmented area, 0 for others
+        mask = self.coco.annToMask(anns[0]) * ann[0]['category_id']
+        for i in range(1, len(anns)):
+            mask += self.coco.annToMask(anns[i]) * ann[1]['category_id']
 
-        return I, labels
+        return I, mask
 
