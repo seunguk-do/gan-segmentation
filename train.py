@@ -12,8 +12,14 @@ from ic_gan.data_utils.utils import load_pretrained_feature_extractor
 from stylegan2_ada_pytorch import dnnlib
 from data_utils import ImageDataset
 
+
 # Environment Variables
 root_path = os.path.dirname(os.path.abspath(__file__))
+
+def concat_features(features):
+    h = max([f.shape[-2] for f in features])
+    w = max([f.shape[-1] for f in features])
+    return torch.cat([torch.nn.functional.interpolate(f, (h,w), mode='nearest') for f in features], dim=1)
 
 def preprocess_img(img):
     
@@ -26,7 +32,7 @@ def load_feature_extractor_and_precomputed_features(path_to_swav, path_to_precom
     precomputed_features = torch.tensor(precomputed_features, requires_grad=False, device="cpu")
     return feature_extractor, precomputed_features
 
-def get_h(img, feature_extractor, precomputed_features,):
+def get_h(img, feature_extractor, precomputed_features):
     # SwaV trained on 224
     img = torch.nn.functional.interpolate(img, 224, mode="bicubic", align_corners=True)
     all_dists = []
@@ -39,7 +45,7 @@ def get_h(img, feature_extractor, precomputed_features,):
     # find the most similar k nn center given the feature of input img
     for i in range(len(precomputed_features)):
         dist = sklearn.metrics.pairwise_distances(
-                out_features, precomputed_features[i].unsqueeze(0), metric="euclidean", n_jobs=-1)
+                out_features, precomputed_features[i].unsqueeze(0), metric="euclidean", n_jobs=1)
         all_dists.append(np.diagonal(dist)[0])
     h_idx = np.argsort(all_dists)[0]
 
@@ -48,11 +54,11 @@ def get_h(img, feature_extractor, precomputed_features,):
 def get_ws(G, target, h, device):
     num_steps = 1000
     initial_learning_rate=0.1
-    initial_noise_factor=0.05,
-    lr_rampdown_length=0.25,
-    lr_rampup_length=0.05,
-    noise_ramp_length=0.75,
-    regularize_noise_weight=1e5,
+    initial_noise_factor=0.05
+    lr_rampdown_length=0.25
+    lr_rampup_length=0.05
+    noise_ramp_length=0.75
+    regularize_noise_weight=1e5
     w_avg_samples = 10000
 
     h = h.repeat(w_avg_samples,1)
@@ -74,7 +80,7 @@ def get_ws(G, target, h, device):
         vgg16 = torch.jit.load(f).eval().to(device)
 
     # Features for target image.
-    target_images = target.unsqueeze(0).to(device).to(torch.float32)
+    target_images = target.to(device).to(torch.float32)
     if target_images.shape[2] > 256:
         target_images = F.interpolate(target_images, size=(256, 256), mode="area")
     target_features = vgg16(target_images, resize_images=False, return_lpips=True)
@@ -112,7 +118,7 @@ def get_ws(G, target, h, device):
         # Synth images from opt_w.
         w_noise = torch.randn_like(w_opt) * w_noise_scale
         ws = (w_opt + w_noise).repeat([1, G.mapping.num_ws, 1])
-        synth_images = G.synthesis(ws, noise_mode="const")
+        synth_images, _ = G.synthesis(ws, noise_mode="const")
 
         # Downsample image to 256x256 if it's larger than that. VGG was built for 224x224 images.
         synth_images = (synth_images + 1) * (255 / 2)
@@ -150,11 +156,7 @@ def get_ws(G, target, h, device):
                 buf -= buf.mean()
                 buf *= buf.square().mean().rsqrt()
 
-    return w_out.repeat([1, G.mapping.num_ws, 1])
-
-
-
-    return ws
+    return w_out[num_steps-1].repeat([1, G.mapping.num_ws, 1])
 
 if __name__ == '__main__':
     # Training Arguments
@@ -179,7 +181,7 @@ if __name__ == '__main__':
                           synthesis_kwargs={'channel_base': 16384, 
                                             'channel_max': 512, 
                                             'num_fp16_res': 4, 
-                                            'conv_clamp': 256})
+                                            'conv_clamp': 256}).to(device)
     generator.load_state_dict(torch.load(pretrained_model_path))
     generator.requires_grad_(False)
 
@@ -187,7 +189,7 @@ if __name__ == '__main__':
     dataset = ImageDataset('./datasets/coco') 
     categories = dataset.get_category_ids()
 
-    model = FewShotCNN(5376, 90, size='L')
+    model = FewShotCNN(4416, 90, size='L')
 
     # Training
     optimizer = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=0.001)
@@ -209,7 +211,8 @@ if __name__ == '__main__':
 
             _, feat = generator(ws)
 
-            out = model(feat) # --> [1, n_class, 256, 256] 
+            feat_concat = concat_features(feat)
+            out = model(feat_concat) # --> [1, n_class, 256, 256] 
 
             loss = F.cross_entropy(out, label, reduction='mean')
 

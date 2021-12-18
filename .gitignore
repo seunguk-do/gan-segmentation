@@ -7,4 +7,6 @@ ckpts/
 wandb/
 *.txt
 *.jsonl
-
+pretrained_models/
+checkpoint/
+*.pyc

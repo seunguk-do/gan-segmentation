@@ -705,9 +705,9 @@ class SynthesisNetwork(torch.nn.Module):
         features = []
         for res, cur_ws in zip(self.block_resolutions, block_ws):
             block = getattr(self, f"b{res}")
-            x, img = block(x, img, cur_ws, **block_kwargs)
-            features += features
-        return img, features
+            x, img, feature = block(x, img, cur_ws, **block_kwargs)
+            features += feature
+        return img, features[:-1]
 
 
 # ----------------------------------------------------------------------------
