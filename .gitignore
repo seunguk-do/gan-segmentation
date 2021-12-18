@@ -1,0 +1,10 @@
+datasets/
+generated_samples/
+ckpts/
+*.pkl
+*.pth
+*.swp
+wandb/
+*.txt
+*.jsonl
+
