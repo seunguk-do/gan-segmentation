@@ -11,14 +11,21 @@ from generator import Generator
 from ic_gan.data_utils.utils import load_pretrained_feature_extractor
 from stylegan2_ada_pytorch import dnnlib
 import pickle
+from torchvision.utils import save_image
+from PIL import Image
 
 # Environment Variables
 root_path = os.path.dirname(os.path.abspath(__file__))
 
-def concat_features(features):
-    h = max([f.shape[-2] for f in features])
-    w = max([f.shape[-1] for f in features])
-    return torch.cat([torch.nn.functional.interpolate(f, (h,w), mode='nearest') for f in features], dim=1)
+def save_as_img(target, name, normalized=True):
+    assert target.shape == (1, 3, 256, 256)
+    if normalized == False:
+        image = target.permute(0, 2, 3, 1).clamp(0,255).to(torch.uint8)[0].cpu().numpy()
+        image = Image.fromarray(image)
+        image.save(name)
+    else:
+        save_image(target, name)
+    # image = target.permute(0, 2, 3, 1).clamp(0,255).to(torch.uint8)[0].cpu()
 
 def load_feature_extractor_and_precomputed_features(path_to_swav, path_to_precomputed_features):
     feature_extractor = load_pretrained_feature_extractor(path_to_swav, "selfsupervised").eval()
@@ -45,7 +52,7 @@ def get_h(img, feature_extractor, precomputed_features):
     return precomputed_features[h_idx].cuda() 
 
 def get_ws(G, target, h, device):
-    assert target.shape == (G.img_channels, G.img_resolution, G.img_resolution)
+    assert target.shape == (1, G.img_channels, G.img_resolution, G.img_resolution)
     
     num_steps = 1000
     initial_learning_rate=0.1
@@ -192,7 +199,7 @@ if __name__ == '__main__':
     num = 1
     for (img_normalized, img_raw) in zip(imgs_normalized, imgs_raw):
         h = get_h(img_normalized.cuda(), feature_extractor, precomputed_features)
-        ws = get_ws(generator, img_raw.squeeze(0), h, device)
+        ws = get_ws(generator, img_raw, h, device)
         h_save.append(h.cpu())
         ws_save.append(ws.cpu())
         print(f"processed {num}/80 images")
@@ -205,4 +212,3 @@ if __name__ == '__main__':
         pickle.dump(h_save, f)
     with open(ws_save_name, 'wb') as f:
         pickle.dump(ws_save, f)
-
