@@ -12,6 +12,7 @@ from model import FewShotCNN
 from ic_gan.data_utils.utils import load_pretrained_feature_extractor
 from stylegan2_ada_pytorch import dnnlib
 from data_utils import ImageDataset
+from eval_utils import mIoU
 
 
 # Environment Variables
@@ -191,6 +192,9 @@ if __name__ == '__main__':
 
     model = FewShotCNN(4416, 91, size='L')
 
+    # mIoU (Evaluation Metric)
+    mIoU = mIoU(n_classes=91)
+
     # Training
     optimizer = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=0.001)
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=50, gamma=0.1)
@@ -229,6 +233,8 @@ if __name__ == '__main__':
                         'model_state_dict': model.state_dict(),
                         'optimizer_state_dict': optimizer.state_dict(),
                         'loss': loss}, checkpoint_path)
+            # model_prediction & ground_truth : tensor of [B, H, W] or [B, 1, H, W]
+            # mIoU = mIoU(model_prediction, ground_truth)
 
         scheduler.step()
     print('Done!')
