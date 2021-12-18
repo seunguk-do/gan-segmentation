@@ -2,7 +2,7 @@ from torch import nn
 import torch
 
 
-class mIoU(nn.Module):
+class mIoUEstimator(nn.Module):
     def __init__(self, n_classes=91):
         super(mIoU, self).__init__()
         self.n_classes = n_classes
@@ -33,7 +33,6 @@ class mIoU(nn.Module):
             union = total - intersection 
         
             IoU = (intersection + smooth)/(union + smooth)
-            #import pdb; pdb.set_trace()
             sum_IoU += IoU
                 
         return sum_IoU/(self.n_classes-1)
