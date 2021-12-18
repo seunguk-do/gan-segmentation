@@ -10,3 +10,5 @@ wandb/
 pretrained_models/
 checkpoint/
 *.pyc
+pickles_old/
+*.pickle
