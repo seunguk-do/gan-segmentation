@@ -19,7 +19,7 @@ class mIoUEstimator(nn.Module):
                 
         sum_IoU = 0
         
-        for i in range(1, self.n_classes):
+        for i in range(self.n_classes):
             a = torch.zeros_like(inputs)
             b = torch.zeros_like(inputs)
 
@@ -33,4 +33,4 @@ class mIoUEstimator(nn.Module):
             IoU = (intersection + smooth)/(union + smooth)
             sum_IoU += IoU
                 
-        return sum_IoU/(self.n_classes-1)
+        return sum_IoU/(self.n_classes)
