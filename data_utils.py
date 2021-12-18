@@ -80,7 +80,8 @@ class ImageDataset:
     def save_pickles(self):
         categories = self.get_category_ids()
         num_sets = 10
-        imgs = defaultdict(list)
+        imgs_normalized = defaultdict(list)
+        imgs_raw = defaultdict(list)
         masks = defaultdict(list)
 
         for cat_id in categories:
@@ -96,21 +97,26 @@ class ImageDataset:
                 for j in range(1, len(anns)):
                     mask = np.maximum(mask, self.coco.annToMask(anns[j]) * (anns[j]['category_id'])) 
                 
+                I_raw = torch.tensor(I.transpose([2,0,1])).to(torch.long).unsqueeze(0)
                 I = transforms.ToTensor()(I).to(torch.float32).unsqueeze(0)
                 mask = torch.from_numpy(mask).to(torch.long).unsqueeze(0)
 
                 crop_dim = min(I.shape[2], I.shape[3])
-                I, mask = transforms.CenterCrop(crop_dim)(I), transforms.CenterCrop(crop_dim)(mask)
-                I, mask = transforms.Resize((256, 256))(I), transforms.Resize((256, 256))(mask)
+                I_raw, I, mask = transforms.CenterCrop(crop_dim)(I_raw), transforms.CenterCrop(crop_dim)(I), transforms.CenterCrop(crop_dim)(mask)
+                I_raw, I, mask = transforms.Resize((256, 256))(I_raw), transforms.Resize((256, 256))(I), transforms.Resize((256, 256))(mask)
                 I = transforms.Normalize(NORM_MEAN, NORM_STD)(I)
+                I = torch.nn.functional.interpolate(I, 224, mode="bicubic", align_corners=True)
 
-                imgs[i].append(I)
+                imgs_raw[i].append(I_raw)
+                imgs_normalized[i].append(I)
                 masks[i].append(mask)
         
-        with open('./imgs.pickle', 'wb') as f:
-            pickle.dump(imgs, f) 
+        with open('./imgs_normalized.pickle', 'wb') as f:
+            pickle.dump(imgs_normalized, f) 
+        with open('./imgs_raw.pickle', 'wb') as f:
+            pickle.dump(imgs_raw, f) 
         with open('./masks.pickle', 'wb') as f:
             pickle.dump(masks,f)
-            
+
 dataset = ImageDataset('./datasets/coco')
 dataset.save_pickles()

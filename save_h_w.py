@@ -46,6 +46,8 @@ def get_h(img, feature_extractor, precomputed_features):
     return precomputed_features[h_idx].cuda() 
 
 def get_ws(G, target, h, device):
+    assert target.shape == (G.img_channels, G.img_resolution, G.img_resolution)
+    
     num_steps = 1000
     initial_learning_rate=0.1
     initial_noise_factor=0.05

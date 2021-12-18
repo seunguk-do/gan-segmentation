@@ -24,6 +24,103 @@ import torch.nn.functional as F
 
 import dnnlib
 import legacy
+import sklearn.metrics
+from resnet import resnet50
+
+def load_pretrained_feature_extractor(
+    pretrained_path="",
+    feature_extractor="classification",
+    backbone_feature_extractor="resnet50",
+):
+    """It loads a pre-trained feature extractor.
+
+    Arguments
+    ---------
+        pretrained_path: str, optional
+            Path to the feature extractor's weights.
+        feature_extractor: str, optional
+            If "classification" a network trained on ImageNet for classification will be used. If
+            "selfsupervised", a network trained on ImageNet with self-supervision will be used.
+        backbone_feature_extractor: str, optional
+            Name of the backbone for the feature extractor. Currently, only ResNet50 is supported.
+    Returns
+    -------
+    A Pytorch network initialized with pre-trained weights.
+
+    """
+    if backbone_feature_extractor == "resnet50":
+        print("using resnet50 to extract features")
+        net = resnet50(
+            pretrained=False if pretrained_path != "" else True, classifier_run=False
+        ).cuda()
+    else:
+        raise ValueError("Not implemented for backbones other than ResNet50.")
+    if pretrained_path != "":
+        print("Loading pretrained weights from: ", pretrained_path)
+
+        # original saved file with DataParallel
+        state_dict = torch.load(pretrained_path)
+        if not feature_extractor == "selfsupervised":
+            state_dict = state_dict["state_dict_best"]["feat_model"]
+
+        # create new OrderedDict that does not contain `module.`
+        from collections import OrderedDict
+
+        new_state_dict = OrderedDict()
+        for k, v in state_dict.items():
+            if "module." in k:
+                name = k[7:]  # remove `module.`
+            elif "_feature_blocks." in k:
+                name = k.replace("_feature_blocks.", "")
+            else:
+                name = k
+            if name in net.state_dict().keys():
+                new_state_dict[name] = v
+            else:
+                print("key ", name, " not in dict")
+
+        for key in net.state_dict().keys():
+            if key not in new_state_dict.keys():
+                print("Network key ", key, " not in dict to load")
+        if not feature_extractor == "selfsupervised":
+            state_dict = torch.load(pretrained_path)["state_dict_best"]["classifier"]
+            # create new OrderedDict that does not contain `module.`
+            for k, v in state_dict.items():
+                name = k[7:]  # remove `module.`
+                new_state_dict[name] = v
+        # load params
+        net.load_state_dict(
+            new_state_dict,
+            strict=False if feature_extractor == "selfsupervised" else True,
+        )
+    else:
+        print("Using pretrained weights on full ImageNet.")
+    return net
+
+def load_feature_extractor_and_precomputed_features(path_to_swav, path_to_precomputed_features):
+    feature_extractor = load_pretrained_feature_extractor(path_to_swav, "selfsupervised").eval()
+    precomputed_features = np.load(path_to_precomputed_features, allow_pickle=True).item()["instance_features"]    
+    precomputed_features = torch.tensor(precomputed_features, requires_grad=False, device="cpu")
+    return feature_extractor, precomputed_features
+
+def get_h(img, feature_extractor, precomputed_features):
+    # SwaV trained on 224
+    img = torch.nn.functional.interpolate(img, 224, mode="bicubic", align_corners=True)
+    all_dists = []
+
+    # get the feature of given img 
+    with torch.no_grad():
+        out_features, _ = feature_extractor(img)
+        out_features = (out_features / torch.linalg.norm(out_features, dim=-1, keepdims=True)).cpu()
+
+    # find the most similar k nn center given the feature of input img
+    for i in range(len(precomputed_features)):
+        dist = sklearn.metrics.pairwise_distances(
+                out_features, precomputed_features[i].unsqueeze(0), metric="euclidean", n_jobs=1)
+        all_dists.append(np.diagonal(dist)[0])
+    h_idx = np.argsort(all_dists)[0]
+
+    return precomputed_features[h_idx].cuda() 
 
 
 def project(
@@ -52,7 +149,8 @@ def project(
     # Compute w stats.
     logprint(f"Computing W midpoint and stddev using {w_avg_samples} samples...")
     z_samples = np.random.RandomState(123).randn(w_avg_samples, G.z_dim)
-    w_samples = G.mapping(torch.from_numpy(z_samples).to(device), None)  # [N, L, C]
+    h = get_h(img, )
+    w_samples = G.mapping(torch.from_numpy(z_samples).to(device), None, h)  # [N, L, C]
     w_samples = w_samples[:, :1, :].cpu().numpy().astype(np.float32)  # [N, 1, C]
     w_avg = np.mean(w_samples, axis=0, keepdims=True)  # [1, 1, C]
     w_std = (np.sum((w_samples - w_avg) ** 2) / w_avg_samples) ** 0.5
@@ -190,9 +288,7 @@ def run_projection(
     num_steps: int,
 ):
     """Project given image to the latent space of pretrained network pickle.
-
     Examples:
-
     \b
     python projector.py --outdir=out --target=~/mytargetimg.png \\
         --network=https://nvlabs-fi-cdn.nvidia.com/stylegan2-ada-pytorch/pretrained/ffhq.pkl
@@ -270,4 +366,3 @@ def run_projection(
 if __name__ == "__main__":
     run_projection()  # pylint: disable=no-value-for-parameter
 
-# ----------------------------------------------------------------------------
