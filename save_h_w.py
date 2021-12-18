@@ -1,4 +1,5 @@
 import os
+import sys
 import torch
 import torch.nn.functional as F
 import numpy as np
@@ -6,13 +7,10 @@ import sklearn.metrics
 import time
 import random
 import copy
-from stylegan2_ada_pytorch import torch_utils
 from generator import Generator
-from model import FewShotCNN
 from ic_gan.data_utils.utils import load_pretrained_feature_extractor
 from stylegan2_ada_pytorch import dnnlib
-from data_utils import ImageDataset
-
+import pickle
 
 # Environment Variables
 root_path = os.path.dirname(os.path.abspath(__file__))
@@ -21,11 +19,6 @@ def concat_features(features):
     h = max([f.shape[-2] for f in features])
     w = max([f.shape[-1] for f in features])
     return torch.cat([torch.nn.functional.interpolate(f, (h,w), mode='nearest') for f in features], dim=1)
-
-def preprocess_img(img):
-    
-    return img
-
 
 def load_feature_extractor_and_precomputed_features(path_to_swav, path_to_precomputed_features):
     feature_extractor = load_pretrained_feature_extractor(path_to_swav, "selfsupervised").eval()
@@ -147,7 +140,8 @@ def get_ws(G, target, h, device):
         optimizer.zero_grad(set_to_none=True)
         loss.backward()
         optimizer.step()
-        print(f"step {step+1:>4d}/{num_steps}: dist {dist:<4.2f} loss {float(loss):<5.2f}")
+        if step % 100 == 0:
+            print(f"step {step+1:>4d}/{num_steps}: dist {dist:<4.2f} loss {float(loss):<5.2f}")
 
         # Save projected W for each optimization step.
         w_out[step] = w_opt.detach()[0]
@@ -161,21 +155,20 @@ def get_ws(G, target, h, device):
     return w_out[num_steps-1].repeat([1, G.mapping.num_ws, 1])
 
 if __name__ == '__main__':
+    img_set_num = sys.argv[1]
+
     # Training Arguments
     device = 'cuda' 
     image_size = 256
     pretrained_model_path = os.path.join(root_path, 'pretrained_models',
                                          'icgan_stylegan2_coco_res256',
                                          'best_model.pth')
-    checkpoint_dir = os.path.join(root_path, 'checkpoint')
     path_to_swav = os.path.join(root_path, 'datasets', 'swav_800ep_pretrain.pth.tar')
     path_to_precomputed_features = os.path.join(root_path, 'pretrained_models', 'stored_instances', 'coco_res256_rn50_selfsupervised_kmeans_k1000_instance_features.npy')
-
 
     # Load pretrained features and SwaV feature extractor
     feature_extractor, precomputed_features = load_feature_extractor_and_precomputed_features(path_to_swav, path_to_precomputed_features)
     
-
     # Construct Networks
     generator = Generator(z_dim=512, c_dim=0, h_dim=2048, w_dim=512,
                           img_resolution=256, img_channels=3,
@@ -187,50 +180,26 @@ if __name__ == '__main__':
     generator.load_state_dict(torch.load(pretrained_model_path))
     generator.requires_grad_(False)
 
-    # Data Loader
-    dataset = ImageDataset('./datasets/coco') 
-    categories = dataset.get_category_ids()
-
-    model = FewShotCNN(4416, 91, size='L')
-
-    # Training
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=0.001)
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=50, gamma=0.1)
-
-    model.train().to(device)
-    start_time = time.time()
-    for epoch in range(1, 100+1):
-        
-        random.shuffle(categories)
-
-        for cat_id in categories:
-            ## loader brings in img
-            for a in categories:
-                img, label = dataset.get_sample_by_category_id(a)
-
-            # img [N, C, W, H]
-            h = get_h(img, feature_extractor, precomputed_features) #20~30sec
-            ws = get_ws(generator, img, h, device)  #90 sec
+    with open("imgs.pickle", "rb") as f:
+        imgs = pickle.load(f)
     
-            with torch.no_grad():
-                _, feat = generator(ws)
+    imgs = imgs[int(img_set_num)]
+    h_save = []
+    ws_save = []
+    num = 1
+    for img in imgs:
+        h = get_h(img.cuda(), feature_extractor, precomputed_features)
+        ws = get_ws(generator, img, h, device)
+        h_save.append(h.cpu())
+        ws_save.append(ws.cpu())
+        print(f"processed {num}/80 images")
+        num += 1
 
-            feat_concat = concat_features(feat)
-            out = model(feat_concat) # --> [1, n_class, 256, 256] 
+    h_save_name = "h_" + str(int(img_set_num)) + ".pickle"
+    ws_save_name = "ws_" + str(int(img_set_num)) + ".pickle"
 
-            loss = F.cross_entropy(out, label, reduction='mean')
+    with open(h_save_name, 'wb') as f:
+        pickle.dump(h_save, f)
+    with open(ws_save_name, 'wb') as f:
+        pickle.dump(ws_save, f)
 
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-
-        if epoch % 1 == 0:
-            print(f'{epoch:5}-th epoch | loss: {loss.item():6.4f} | time: {time.time()-start_time:6.1f}sec')
-            checkpoint_path = os.path.join(checkpoint_dir, f'val_loss_{loss.item():6.4f}.pt')
-            torch.save({'epoch': epoch,
-                        'model_state_dict': model.state_dict(),
-                        'optimizer_state_dict': optimizer.state_dict(),
-                        'loss': loss}, checkpoint_path)
-
-        scheduler.step()
-    print('Done!')
