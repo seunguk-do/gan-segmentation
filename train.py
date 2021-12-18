@@ -34,8 +34,6 @@ def load_feature_extractor_and_precomputed_features(path_to_swav, path_to_precom
     return feature_extractor, precomputed_features
 
 def get_h(img, feature_extractor, precomputed_features):
-    # SwaV trained on 224
-    img = torch.nn.functional.interpolate(img, 224, mode="bicubic", align_corners=True)
     all_dists = []
 
     # get the feature of given img 

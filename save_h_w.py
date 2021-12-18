@@ -27,8 +27,7 @@ def load_feature_extractor_and_precomputed_features(path_to_swav, path_to_precom
     return feature_extractor, precomputed_features
 
 def get_h(img, feature_extractor, precomputed_features):
-    # SwaV trained on 224
-    img = torch.nn.functional.interpolate(img, 224, mode="bicubic", align_corners=True)
+    assert img.shape == (1, 3, 224, 224)
     all_dists = []
 
     # get the feature of given img 
@@ -142,8 +141,7 @@ def get_ws(G, target, h, device):
         optimizer.zero_grad(set_to_none=True)
         loss.backward()
         optimizer.step()
-        if step % 100 == 0:
-            print(f"step {step+1:>4d}/{num_steps}: dist {dist:<4.2f} loss {float(loss):<5.2f}")
+        print(f"step {step+1:>4d}/{num_steps}: dist {dist:<4.2f} loss {float(loss):<5.2f}")
 
         # Save projected W for each optimization step.
         w_out[step] = w_opt.detach()[0]
@@ -182,23 +180,26 @@ if __name__ == '__main__':
     generator.load_state_dict(torch.load(pretrained_model_path))
     generator.requires_grad_(False)
 
-    with open("imgs.pickle", "rb") as f:
-        imgs = pickle.load(f)
+    with open("imgs_normalized.pickle", "rb") as f:
+        imgs_normalized = pickle.load(f)
+    with open("imgs_raw.pickle", "rb") as f:
+        imgs_raw = pickle.load(f)
     
-    imgs = imgs[int(img_set_num)]
+    imgs_normalized = imgs_normalized[int(img_set_num)]
+    imgs_raw = imgs_raw[int(img_set_num)]
     h_save = []
     ws_save = []
     num = 1
-    for img in imgs:
-        h = get_h(img.cuda(), feature_extractor, precomputed_features)
-        ws = get_ws(generator, img, h, device)
+    for (img_normalized, img_raw) in zip(imgs_normalized, imgs_raw):
+        h = get_h(img_normalized.cuda(), feature_extractor, precomputed_features)
+        ws = get_ws(generator, img_raw.squeeze(0), h, device)
         h_save.append(h.cpu())
         ws_save.append(ws.cpu())
         print(f"processed {num}/80 images")
         num += 1
 
-    h_save_name = "h_" + str(int(img_set_num)) + ".pickle"
-    ws_save_name = "ws_" + str(int(img_set_num)) + ".pickle"
+    h_save_name = "new_h_" + str(int(img_set_num)) + ".pickle"
+    ws_save_name = "new_ws_" + str(int(img_set_num)) + ".pickle"
 
     with open(h_save_name, 'wb') as f:
         pickle.dump(h_save, f)
