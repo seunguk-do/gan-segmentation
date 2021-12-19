@@ -93,7 +93,7 @@ if __name__ == '__main__':
     model.train().to(device)
     start_time = time.time()
     print("Start training...!")
-    for epoch in range(1, 100+1):
+    for epoch in range(1, 200+1):
         print(f"epoch: {epoch}/100")
         for ws, label in zip(train_ws_set, train_labels):
             ws, label = ws.cuda(), label.cuda()
