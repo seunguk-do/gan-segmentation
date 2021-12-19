@@ -64,7 +64,7 @@ if __name__ == '__main__':
         h_sets = pickle.load(f)
     with open("pickles_new/ws_sets.pickle", "rb") as f:
         ws_sets = pickle.load(f)
-    with open("pickles_new/masks.pickle", "rb") as f:
+    with open("pickles_new/binary_masks.pickle", "rb") as f:
         labels = pickle.load(f)
 
     train_h_set = []
@@ -83,7 +83,7 @@ if __name__ == '__main__':
         eval_ws_set += ws_sets[i]
         eval_labels += labels[i]
 
-    model = FewShotCNN(4416, 91, size=network_size)
+    model = FewShotCNN(4416, 2, size=network_size)
     mIoU_estimator = mIoUEstimator()
 
     # Training

@@ -117,6 +117,34 @@ class ImageDataset:
             pickle.dump(imgs_raw, f) 
         with open('./masks.pickle', 'wb') as f:
             pickle.dump(masks,f)
+    
+    def save_binary_mask(self):
+        categories = self.get_category_ids()
+        num_sets = 10
+        masks = defaultdict(list)
+
+        for cat_id in categories:
+            img_ids = self.coco.getImgIds(catIds=cat_id)
+            for i in range(num_sets):
+                img = self.coco.loadImgs(img_ids[i])[0]
+
+                ann_ids = self.coco.getAnnIds(imgIds=img['id'], catIds=self.coco.getCatIds(catIds=self.get_category_ids()), iscrowd=None)
+                anns = self.coco.loadAnns(ann_ids)
+                mask = self.coco.annToMask(anns[0])
+                
+                for j in range(1, len(anns)):
+                    mask = np.maximum(self.coco.annToMask(anns[j]), mask) 
+                
+                mask = torch.from_numpy(mask).to(torch.long).unsqueeze(0)
+
+                crop_dim = min(mask.shape[1], mask.shape[2])
+                mask = transforms.CenterCrop(crop_dim)(mask)
+                mask = transforms.Resize((256, 256))(mask)
+
+                masks[i].append(mask)
+        
+        with open('./binary_masks.pickle', 'wb') as f:
+            pickle.dump(masks,f)
 
 dataset = ImageDataset('./datasets/coco')
-dataset.save_pickles()
+dataset.save_binary_mask()
