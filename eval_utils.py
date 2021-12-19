@@ -4,7 +4,7 @@ import torch
 
 class mIoUEstimator(nn.Module):
     def __init__(self, n_classes=91):
-        super(mIoU, self).__init__()
+        super(mIoUEstimator, self).__init__()
         self.n_classes = n_classes
 
     def forward(self, inputs, targets, smooth=1):

@@ -9,6 +9,20 @@ from model import FewShotCNN
 import pickle
 import sys
 from eval_utils import mIoUEstimator
+from PIL import Image
+from torchvision.utils import save_image
+
+def save_as_img(target, name, normalized=True, mask=False):
+    if mask == True:
+        image = target.permute(1,2,0).to(torch.uint8).cpu().numpy()
+        image = Image.fromarray(image.squeeze(axis=2))
+        image.save(name)
+    elif normalized == False:
+        image = target.permute(0, 2, 3, 1).clamp(0,255).to(torch.uint8)[0].cpu().numpy()
+        image = Image.fromarray(image)
+        image.save(name)
+    else:
+        save_image(target, name)
 
 # Environment Variables
 root_path = os.path.dirname(os.path.abspath(__file__))
@@ -91,15 +105,16 @@ if __name__ == '__main__':
             optimizer.step()
         
         if epoch % 5 == 0:
+            model.eval()
             print(f'{epoch:5}-th epoch | loss: {loss.item():6.4f} | time: {time.time()-start_time:6.1f}sec')
             scores = []
             for ws, label in zip(eval_ws_set, eval_labels):
                 ws, label = ws.cuda(), label.cuda()
                 with torch.no_grad():
                     _, feat = generator(ws)
-                feat_concat = concat_features(feat)
-                out = model(feat_concat)
-                model_prediction = torch.max(out, dim=1)[1]
+                    feat_concat = concat_features(feat)
+                    out = model(feat_concat)
+                    model_prediction = torch.max(out, dim=1)[1]
                 # model_prediction & ground_truth : tensor of [B, H, W] or [B, 1, H, W]
                 metric = mIoU_estimator(model_prediction, label)
                 scores.append(metric.item())
@@ -111,6 +126,7 @@ if __name__ == '__main__':
                         'model_state_dict': model.state_dict(),
                         'optimizer_state_dict': optimizer.state_dict(),
                         'loss': loss}, checkpoint_path)
+            model.train()
 
         scheduler.step()
     print('Done!')
