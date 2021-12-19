@@ -84,7 +84,7 @@ if __name__ == '__main__':
         eval_labels += labels[i]
 
     model = FewShotCNN(4416, 2, size=network_size)
-    mIoU_estimator = mIoUEstimator()
+    mIoU_estimator = mIoUEstimator(2)
 
     # Training
     optimizer = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=0.001)
